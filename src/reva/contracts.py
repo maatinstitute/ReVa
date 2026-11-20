@@ -26,6 +26,18 @@ class ModelCapabilityProfile:
     supports_streaming: bool = False
     supports_cached_predictions: bool = False
     supports_variable_action_horizon: bool = False
+    # Versioned semantic identity keeps model-specific transforms explicit while
+    # leaving execution and scheduling in ReVa.  These fields are optional for
+    # existing adapters and become required only when a campaign needs to
+    # compare model semantics across runtimes.
+    protocol_version: str = "model-capabilities.v1"
+    observation_spec_id: str | None = None
+    action_spec_id: str | None = None
+    max_chunk_length: int | None = None
+    supports_seed: bool = False
+    checkpoint_digest: str | None = None
+    preprocessing_digest: str | None = None
+    postprocessing_digest: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-compatible frozen capability record for evidence."""
@@ -46,6 +58,14 @@ class ModelCapabilityProfile:
             "supports_streaming": self.supports_streaming,
             "supports_cached_predictions": self.supports_cached_predictions,
             "supports_variable_action_horizon": self.supports_variable_action_horizon,
+            "protocol_version": self.protocol_version,
+            "observation_spec_id": self.observation_spec_id,
+            "action_spec_id": self.action_spec_id,
+            "max_chunk_length": self.max_chunk_length,
+            "supports_seed": self.supports_seed,
+            "checkpoint_digest": self.checkpoint_digest,
+            "preprocessing_digest": self.preprocessing_digest,
+            "postprocessing_digest": self.postprocessing_digest,
         }
 
     def supports(self, metric: str) -> bool:
@@ -83,6 +103,7 @@ class ModelCapabilityProfile:
             "supports_streaming",
             "supports_cached_predictions",
             "supports_variable_action_horizon",
+            "supports_seed",
         ):
             if not isinstance(getattr(self, name), bool):
                 issues.append(f"{name} must be boolean")
@@ -101,6 +122,23 @@ class ModelCapabilityProfile:
                 issues.append("memory_bytes must be an integer or null")
             elif self.memory_bytes < 0:
                 issues.append("memory_bytes must be non-negative")
+        if not isinstance(self.protocol_version, str) or not self.protocol_version:
+            issues.append("protocol_version must be a non-empty string")
+        for name in (
+            "observation_spec_id",
+            "action_spec_id",
+            "checkpoint_digest",
+            "preprocessing_digest",
+            "postprocessing_digest",
+        ):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value):
+                issues.append(f"{name} must be a non-empty string or null")
+        if self.max_chunk_length is not None:
+            if isinstance(self.max_chunk_length, bool) or not isinstance(self.max_chunk_length, int):
+                issues.append("max_chunk_length must be an integer or null")
+            elif self.max_chunk_length <= 0:
+                issues.append("max_chunk_length must be positive")
         valid_runtime_controls = isinstance(self.runtime_controls, (tuple, list)) and all(
             isinstance(value, str) and bool(value) for value in self.runtime_controls
         )

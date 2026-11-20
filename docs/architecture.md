@@ -20,6 +20,15 @@ invokes a supplied executable without a shell, sends a versioned JSON request
 for each inference, and accepts only a JSON action-chunk response. This is a
 process boundary, not a claim that ReVa owns the model runtime.
 
+`ModelCapabilityProfile` is the single model-facing descriptor. In addition to
+runtime controls and timing signals, it can record versioned observation and
+action specification identifiers, maximum chunk length, seed support, and
+checkpoint, preprocessing, and postprocessing digests. These fields identify
+semantic compatibility and provenance; they do not move model-specific
+preprocessing or action conversion into ReVa. A model runtime remains
+responsible for those transformations, while the scheduler validates the
+resulting `ActionChunk` against the declared contract.
+
 The simulator registry provides a corresponding persistent JSON-line bridge
 with `reset`, `observe`, `step`, and `close` operations. The external process
 retains physics and safety authority; ReVa records the resulting
