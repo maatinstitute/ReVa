@@ -26,6 +26,25 @@ policy = CallablePolicyAdapter(
 )
 ```
 
+Declare controls explicitly. A model with no denoising knob must reject
+denoising requests rather than run the same computation under different labels:
+
+```python
+policy = CallablePolicyAdapter(
+    predict,
+    policy_id="sleepy-orangutan",
+    resetter=lambda seed: model.reset(seed=seed),
+    supports_denoising_steps=False,
+)
+```
+
+Use `supported_denoising_steps={2, 5}` when only a discrete set is valid. The
+adapter raises before inference for unsupported values. The reset hook must
+clear temporal state, cached chunks, and model random state; omit it only for a
+provably stateless model. If the model changes action coordinates, scaling, or
+gripper conventions, perform that conversion in `predict` and pass an
+`action_validator` that checks the final native representation before returning.
+
 The predictor receives the campaign's `denoising_steps` value even when the
 model does not use denoising. Do not silently map an unsupported control to a
 different computation. Record that fact in the adapter's capability profile or
