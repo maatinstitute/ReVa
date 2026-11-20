@@ -61,6 +61,7 @@ from .calibration import (
     compare_calibrations,
 )
 from .authoring import PairedStudy, condition_grid, simulator_environment
+from .adapter_authoring import CallablePolicyAdapter
 from .campaigns import (
     ArtifactReader,
     ArtifactReference,
@@ -321,6 +322,7 @@ __all__ = [
     "validate_confirmation_plan",
     "write_manifest_trust_anchor",
     "ExternalCommandPolicy",
+    "CallablePolicyAdapter",
     "PersistentExternalCommandPolicy",
     "external_command_capabilities",
     "external_vla_capabilities",
