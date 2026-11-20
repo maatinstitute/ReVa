@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
-from .contracts import ActionChunk, Observation
+from .contracts import ActionChunk, ModelCapabilityProfile, Observation
 
 
 class CallablePolicyAdapter:
@@ -28,9 +28,10 @@ class CallablePolicyAdapter:
         *,
         policy_id: str,
         resetter: Callable[[int], None] | None = None,
-        supports_denoising_steps: bool = True,
+        supports_denoising_steps: bool = False,
         supported_denoising_steps: Collection[int] | None = None,
-        action_validator: Callable[[Any], None] | None = None,
+        action_validator: Callable[[ActionChunk], None] | None = None,
+        capabilities: ModelCapabilityProfile | None = None,
     ) -> None:
         if not policy_id:
             raise ValueError("policy_id must be non-empty")
@@ -52,6 +53,11 @@ class CallablePolicyAdapter:
             self._supported_denoising_steps = None
         self._supports_denoising_steps = supports_denoising_steps
         self._action_validator = action_validator
+        if capabilities is not None:
+            issues = capabilities.validate()
+            if issues:
+                raise ValueError("invalid adapter capabilities: " + "; ".join(issues))
+            self.__reva_capabilities__ = capabilities
         self._seed: int | None = None
 
     def reset(self, *, seed: int) -> None:
@@ -76,14 +82,18 @@ class CallablePolicyAdapter:
                     f"denoising_steps={denoising_steps} is not supported by {self.policy_id!r}"
                 )
         result = self._predictor(observation.payload, denoising_steps, self._seed)
-        if self._action_validator is not None:
-            self._action_validator(result)
         if isinstance(result, ActionChunk):
-            return result
-        if isinstance(result, (str, bytes)):
+            chunk = result
+        elif isinstance(result, (str, bytes)):
             raise TypeError("adapter predictor must return an action sequence")
-        try:
-            actions = tuple(result)
-        except TypeError as exc:
-            raise TypeError("adapter predictor must return an action sequence") from exc
-        return ActionChunk(actions=actions)
+        else:
+            try:
+                actions = tuple(result)
+            except TypeError as exc:
+                raise TypeError("adapter predictor must return an action sequence") from exc
+            chunk = ActionChunk(actions=actions)
+        if not chunk.actions:
+            raise ValueError("adapter predictor returned an empty action chunk")
+        if self._action_validator is not None:
+            self._action_validator(chunk)
+        return chunk

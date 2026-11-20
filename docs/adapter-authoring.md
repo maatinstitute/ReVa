@@ -23,10 +23,11 @@ policy = CallablePolicyAdapter(
     predict,
     policy_id="my-model",
     resetter=lambda seed: model.reset(seed=seed),
+    supports_denoising_steps=True,
 )
 ```
 
-Declare controls explicitly. A model with no denoising knob must reject
+Declare controls explicitly. Denoising support is disabled by default. A model with no denoising knob must reject
 denoising requests rather than run the same computation under different labels:
 
 ```python
@@ -43,7 +44,10 @@ adapter raises before inference for unsupported values. The reset hook must
 clear temporal state, cached chunks, and model random state; omit it only for a
 provably stateless model. If the model changes action coordinates, scaling, or
 gripper conventions, perform that conversion in `predict` and pass an
-`action_validator` that checks the final native representation before returning.
+`action_validator` receives the normalized `ActionChunk` and should check the
+final native representation before returning. Pass the model's
+`ModelCapabilityProfile` as `capabilities=...`; the helper attaches it as
+`__reva_capabilities__` so run manifests record it automatically.
 
 The predictor receives the campaign's `denoising_steps` value even when the
 model does not use denoising. Do not silently map an unsupported control to a
